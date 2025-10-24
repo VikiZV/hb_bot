@@ -76,8 +76,3 @@ def start_handler(message):
 bot.polling()
 
 
-
-# @bot.message_handler(commands=['who_i'])
-# def send_admin_id(message):
-#     bot.send_message(message.chat.id, f"Твой chat_id: {message.chat.id}")
-
