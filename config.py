@@ -1,1 +1,4 @@
 TOKEN_TG = '8058033804:AAEPYvumh5A927IYmTT_0ALtkOyKnC7nli4'
+OPENROUTER_API_KEY ='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'
+
+#@happy_birthday_generation_bot
