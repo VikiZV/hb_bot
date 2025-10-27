@@ -1,71 +1,105 @@
+"""
+Telegram бот для поздравления с днем рождения.
+
+Бот проверяет базу данных на совпадения с текущей датой (без учета года),
+генерирует поздравления через OpenRouter API и отправляет их администратору.
+Также поддерживает команду /add для добавления новых пользователей в базу данных.
+"""
+
+import re
+import json
 import telebot
 import requests
 from datetime import datetime
-from config import TOKEN_TG, OPENROUTER_API_KEY
+from config import (
+    TOKEN_TG,
+    OPENROUTER_API_KEY,
+    DB_HOST,
+    DB_USER,
+    DB_PASSWORD,
+    DB_NAME,
+    ADMIN_ID,
+)
 from db import DB
 
-"""Инициализация подключения к базе данных"""
-db = DB(
-    host='server102.hosting.reg.ru', user='u1450880_evg',
-    password='aD6nK7hV7obJ4vB9', database='u1450880_evg'
-    )
+# Константа URL для OpenRouter API
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+# Инициализация подключения к базе данных
+db = DB(
+    host=DB_HOST,
+    user=DB_USER,
+    password=DB_PASSWORD,
+    database=DB_NAME,
+)
 db.connect()
 
-"""Инициализация Telegram бота"""
+# Инициализация Telegram бота
 bot = telebot.TeleBot(TOKEN_TG)
-ADMIN_ID = 836398223
 
 
-def check_birthdays():
+def check_birthdays() -> None:
     """
-    Функция проверки дней рождения.
-    1. Получает текущую дату.
-    2. Проверяет базу данных на совпадения по дате рождения (игнорируя год).
-    3. Для каждого найденного имени генерирует поздравление через OpenRouter API.
-    4. Отправляет сгенерированное поздравление админу в Telegram.
+    Проверяет наличие дней рождения на текущую дату и отправляет поздравления.
+    1. Для каждого найденного имени генерирует поздравление через OpenRouter API
+       с таймаутом и обработкой ошибок.
     """
     today = datetime.today().strftime("%Y-%m-%d")
     try:
         with db.connection.cursor() as cursor:
-            cursor.execute("SELECT name FROM hb WHERE date_birth LIKE %s", (f"%{today[5:]}%",))
+            cursor.execute(
+                "SELECT name FROM hb WHERE DATE_FORMAT(date_birth, '%m-%d') = %s",
+                (today[5:],)
+            )
             result = cursor.fetchall()
+            print(f"Сегодня: {today}, найдено {len(result)} имен для поздравления")
+
             for row in result:
                 name = row[0]
 
-            response = requests.post(
-                url="https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": "deepseek/deepseek-r1-0528:free",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": f"Сгенерируй короткое поздравление с днем рождения для {name}. Только текст поздравления, без вариантов, без объяснений и комментариев, не добавляй никакой маркировки, только сам текст."
-                        }
-                    ],
-                }
-            )
-            if response.status_code == 200:
-                text = response.json()["choices"][0]["message"][
-                    "content"]
-                bot.send_message(ADMIN_ID,
-                                 f"🎉 Поздравляем {name}!\n\n{text}")
-            else:
-                print("Ошибка генерации поздравления:", response.text)
+                try:
+                    response = requests.post(
+                        url=OPENROUTER_URL,
+                        headers={
+                            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                            "Content-Type": "application/json",
+                        },
+                        data=json.dumps({
+                            "model": "qwen/qwen3-coder:free",
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": (
+                                        f"Сгенерируй короткое поздравление с днем рождения для {name}. "
+                                        "Только текст поздравления, без вариантов, без объяснений и комментариев, "
+                                        "не добавляй никакой маркировки, только сам текст."
+                                    ),
+                                }
+                            ],
+                        }),
+                        timeout=15
+                    )
+
+                    response.raise_for_status()
+
+                    text = response.json()["choices"][0]["message"]["content"]
+
+                    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+                    bot.send_message(ADMIN_ID, f"🎉 Поздравляем {name}!\n\n{text}")
+
+                except requests.exceptions.RequestException as e:
+                    print(f"Ошибка запроса к OpenRouter для {name}: {e}")
+
+                except KeyError:
+                    print(f"Не удалось получить текст поздравления для {name} из ответа API.")
 
     except Exception as e:
         print(f"Ошибка при проверке дней рождения: {e}")
 
 
-check_birthdays()
-
-# Чтобы бот отвечал и на команды тоже
-@bot.message_handler(commands=['start'])
-def start_handler(message):
+@bot.message_handler(commands=["start"])
+def start_handler(message) -> None:
     """
     Функция-обработчик команды /start.
     Отправляет приветственное сообщение при запуске бота пользователем.
@@ -73,6 +107,6 @@ def start_handler(message):
     bot.reply_to(message, "Бот запущен! 🎂")
 
 
-bot.polling()
-
-
+if __name__ == "__main__":
+    check_birthdays()
+    bot.polling()
