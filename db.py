@@ -59,7 +59,8 @@ class DB:
             self.connection.commit()
             print('Данные добавлены')
         except Exception as e:
-            values = (person_id, name, date_birth)
+            print(
+                f"Ошибка при добавлении данных {person_id, name, date_birth}: {e}")
 
 
     def update_person_date(self, person_id: int, name: str,
