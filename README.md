@@ -27,13 +27,13 @@
 2. 	Получить OpenRouter API Key.
 3. 	Создать файл config.py со следующими параметрами:
 
-	TOKEN_TG = "ваш_токен_бота"
-	OPENROUTER_API_KEY = "ваш_openrouter_api_key"
-	DB_HOST = "localhost"
-	DB_USER = "ваш_пользователь"
-	DB_PASSWORD = "ваш_пароль"
-	DB_NAME = "имя_базы_данных"
-	ADMIN_ID = "ваш Telegram ID"
+     * TOKEN_TG = "ваш_токен_бота"
+     * OPENROUTER_API_KEY = "ваш_openrouter_api_key"
+     * DB_HOST = "localhost"
+     * DB_USER = "ваш_пользователь"
+     * DB_PASSWORD = "ваш_пароль"
+     * DB_NAME = "имя_базы_данных"
+     * ADMIN_ID = "ваш Telegram ID"
 
 Установить зависимости:
 * pip install -r requirements.txt
